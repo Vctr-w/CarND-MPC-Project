@@ -91,6 +91,8 @@ int main() {
           double py = j[1]["y"];
           double psi = j[1]["psi"];
           double v = j[1]["speed"];
+          double curr_steer_value = j[1]["steering_angle"];
+          double curr_throttle_value = j[1]["throttle"];
 
           for(int i = 0; i < ptsx.size(); i++) {
             cout << ptsx[i] << "\n";
@@ -128,19 +130,23 @@ int main() {
           // epsi = psi - atan(coeffs[1] + 2 * px * coeffs[2] + 3 * coeffs[3] * pow(px, 2))
           double epsi = 0 - atan(coeffs[1]);
 
-          Eigen::VectorXd state(6);
-          state << 0, 0, 0, v, cte, epsi;
+          Eigen::VectorXd state(8);
+          state << 0, 0, 0, v, cte, epsi,
+            curr_steer_value, curr_throttle_value;
 
           auto vars = mpc.Solve(state, coeffs);
 
           double steer_value = vars[0];
           double throttle_value = vars[1];
 
+          mpc.prev_steering_value = steer_value;
+          mpc.prev_throttle = throttle_value;
+
           json msgJson;
           // NOTE: Remember to divide by deg2rad(25) before you send the steering value back.
           // Otherwise the values will be in between [-deg2rad(25), deg2rad(25] instead of [-1, 1].
 
-          double Lf = 2.67;
+          //double Lf = 2.67;
 
           msgJson["steering_angle"] = steer_value / (deg2rad(25));
           msgJson["throttle"] = throttle_value;
@@ -191,7 +197,7 @@ int main() {
           //
           // NOTE: REMEMBER TO SET THIS TO 100 MILLISECONDS BEFORE
           // SUBMITTING.
-          this_thread::sleep_for(chrono::milliseconds(0));
+          this_thread::sleep_for(chrono::milliseconds(100));
           ws.send(msg.data(), msg.length(), uWS::OpCode::TEXT);
         }
       } else {

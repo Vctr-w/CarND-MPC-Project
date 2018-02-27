@@ -7,7 +7,7 @@ using CppAD::AD;
 
 // TODO: Set the timestep length and duration
 size_t N = 10;
-double dt = 0.1;
+double dt = 0.05;
 
 // This value assumes the model presented in the classroom is used.
 //
@@ -48,19 +48,19 @@ class FG_eval {
     fg[0] = 0;
 
     for (int t = 0; t < N; t++) {
-      fg[0] += /*2000*/400 * CppAD::pow(vars[cte_start + t], 2);
-      fg[0] += /*2000*/400 * CppAD::pow(vars[epsi_start + t], 2);
+      fg[0] += 1 * CppAD::pow(vars[cte_start + t], 2);
+      fg[0] += 1 * CppAD::pow(vars[epsi_start + t], 2);
       fg[0] += CppAD::pow(vars[v_start + t] - ref_v, 2);
     }
 
     for (int t = 0; t < N - 1; t++) {
-      fg[0] += /*5*/10 * CppAD::pow(vars[delta_start + t], 2);
-      fg[0] += /*5*/10 * CppAD::pow(vars[a_start + t], 2);
+      fg[0] += 1 * CppAD::pow(vars[delta_start + t], 2);
+      fg[0] += 1 * CppAD::pow(vars[a_start + t], 2);
     }
 
     for (int t = 0; t < N - 2; t++) {
-      fg[0] += /*200*/10 * CppAD::pow(vars[delta_start + t + 1] - vars[delta_start + t], 2);
-      fg[0] += /*10*/10 * CppAD::pow(vars[a_start + t + 1] - vars[a_start + t], 2);
+      fg[0] += 400 * CppAD::pow(vars[delta_start + t + 1] - vars[delta_start + t], 2);
+      fg[0] += 1 * CppAD::pow(vars[a_start + t + 1] - vars[a_start + t], 2);
     }
 
     fg[1 + x_start] = vars[x_start];
@@ -104,7 +104,11 @@ class FG_eval {
 //
 // MPC class definition implementation.
 //
-MPC::MPC() {}
+MPC::MPC() {
+  prev_steering_value = 0;
+  prev_throttle = 0;
+}
+
 MPC::~MPC() {}
 
 vector<double> MPC::Solve(Eigen::VectorXd state, Eigen::VectorXd coeffs) {
@@ -120,6 +124,13 @@ vector<double> MPC::Solve(Eigen::VectorXd state, Eigen::VectorXd coeffs) {
   size_t n_vars = N * 6 + (N - 1) * 2;
   // TODO: Set the number of constraints
   size_t n_constraints = N * 6;
+
+  double x0 = state[0];
+  double y0 = state[1];
+  double psi0 = state[2];
+  double v0 = state[3];
+  double cte0 = state[4];
+  double epsi0 = state[5];
 
   // Initial value of the independent variables.
   // SHOULD BE 0 besides initial state.
@@ -141,12 +152,24 @@ vector<double> MPC::Solve(Eigen::VectorXd state, Eigen::VectorXd coeffs) {
 
   // Delta set to -25 and 25 degrees (in radians)
 
-  for (int i = delta_start; i < a_start; i++) {
+  int latency_timesteps = 2;
+
+  for (int i = delta_start; i < delta_start + latency_timesteps; i++) {
+    vars_lowerbound[i] = prev_steering_value;
+    vars_upperbound[i] = prev_steering_value;    
+  }
+
+  for (int i = delta_start + latency_timesteps; i < a_start; i++) {
     vars_lowerbound[i] = -0.436332;
     vars_upperbound[i] = 0.436332;
   }
 
-  for (int i = a_start; i < n_vars; i++) {
+  for (int i = a_start; i < a_start + latency_timesteps; i++) {
+    vars_lowerbound[i] = prev_throttle;
+    vars_upperbound[i] = prev_throttle;
+  }
+
+  for (int i = a_start + latency_timesteps; i < n_vars; i++) {
     vars_lowerbound[i] = -1.0;
     vars_upperbound[i] = 1.0;
   }
@@ -159,13 +182,6 @@ vector<double> MPC::Solve(Eigen::VectorXd state, Eigen::VectorXd coeffs) {
     constraints_lowerbound[i] = 0;
     constraints_upperbound[i] = 0;
   }
-
-  double x0 = state[0];
-  double y0 = state[1];
-  double psi0 = state[2];
-  double v0 = state[3];
-  double cte0 = state[4];
-  double epsi0 = state[5];
 
   constraints_lowerbound[x_start] = x0;
   constraints_lowerbound[y_start] = y0;
@@ -223,7 +239,7 @@ vector<double> MPC::Solve(Eigen::VectorXd state, Eigen::VectorXd coeffs) {
   // {...} is shorthand for creating a vector, so auto x1 = {1.0,2.0}
   // creates a 2 element double vector.
 
-  vector <double> result = {solution.x[delta_start], solution.x[a_start]};
+  vector <double> result = {solution.x[delta_start + latency_timesteps], solution.x[a_start + latency_timesteps]};
 
   for (int i = 1; i < N; i++) {
     result.push_back(solution.x[x_start + i]);
