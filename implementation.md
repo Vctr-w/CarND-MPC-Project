@@ -6,14 +6,14 @@ The properties of the Global Kinematic Model are described below:
 
 ## States
 The state of the model consists of:
-x - x position of the vehicle in the world
-y - y position of the vehicle in the world
-psi - orientation of the vehicle in the world
-v - velocity of the vehicle
+* x - x position of the vehicle in the world
+* y - y position of the vehicle in the world
+* psi - orientation of the vehicle in the world
+* v - velocity of the vehicle
 
 and two derived state elements based on the reference trajectory:
-cte - cross track error between vehicle and reference trajectory (fitted polynomial to centre of the lane)
-epsi - difference between vehicle's orientation and trajectory orientation
+* cte - cross track error between vehicle and reference trajectory (fitted polynomial to centre of the lane)
+* epsi - difference between vehicle's orientation and trajectory orientation
 
 ## Actuators 
 The vehicle has two actuators, steering (delta) and throttle (a).
